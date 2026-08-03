@@ -41,3 +41,9 @@
   - 环境补充安装 `opencv-contrib-python`（提供 ximgproc.thinning）。
   - 新增实施计划 `docs/superpowers/plans/2026-08-03-hook.md`。
   - 测试：pytest 31 项通过；ruff/black/isort/mypy 全量通过。
+- 完成 M6「人工评审工具」开发（2026-08-04）：
+  - 新增 `review/` 子包：FastAPI 后端（候选列表、原图/候选服务、选择确认接口）+ OpenSeadragon 前端（双视图同步缩放、并排比较、坐标对照）。
+  - `review` CLI：启动评审服务（uvicorn）。
+  - 选择确认：复制候选为 `{kind}/selected.png`，记录候选标识/策略/参数/路径/时间/操作者，状态置 selected。
+  - 新增实施计划 `docs/superpowers/plans/2026-08-04-review-tool.md`。
+  - 测试：pytest 38 项通过；ruff/black/isort/mypy 全量通过。
