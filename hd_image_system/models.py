@@ -61,6 +61,40 @@ class DownloadResult(BaseModel):
     x_range: tuple[int, int] | None = None
 
 
+class LayerMap(BaseModel):
+    """某层级下来源图覆盖的 tile-X 信息。
+
+    Attributes:
+        z: 层级（0..Zmax）。
+        tile_x_start: 覆盖的 tile-X 起始索引（含）。
+        tile_x_end: 覆盖的 tile-X 结束索引（含）。
+        tile_x_center: 物理中心点对应的 tile-X 索引。
+    """
+
+    z: int
+    tile_x_start: int
+    tile_x_end: int
+    tile_x_center: int
+
+
+class SourceMap(BaseModel):
+    """单个来源图在拼接原图中的位置映射（REQ §5.2）。
+
+    Attributes:
+        source_index: 来源图 1 起始位置。
+        x_start: 物理 X 区间起点（含）。
+        x_end: 物理 X 区间终点（不含）。
+        center_x: 物理中心 X 坐标。
+        layers: 每个 z 层的 tile-X 覆盖范围与中心索引。
+    """
+
+    source_index: int
+    x_start: int
+    x_end: int
+    center_x: float
+    layers: list[LayerMap]
+
+
 def parse_input_list(path: Path) -> list[SourceItem]:
     """解析输入清单 JSON 并按 img_num 升序返回。
 
