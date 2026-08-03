@@ -35,3 +35,9 @@
   - `validate_bw_master`：已选黑白图 master 的质量边界校验（尺寸、二值、白底黑字）。
   - 新增实施计划 `docs/superpowers/plans/2026-08-03-binarize.md`。
   - 测试：pytest 28 项通过；ruff/black/isort/mypy 全量通过。
+- 完成 M5「书法双钩候选生成」开发（2026-08-03）：
+  - 新增 `hook.py`：外轮廓 / 全层级轮廓 / Canny / 骨架化共 8 个候选策略，输出白底黑线 PNG。
+  - `hook` CLI：从已选黑白图生成候选到 hook/candidates、回写记录并置状态 pending_selection。
+  - 环境补充安装 `opencv-contrib-python`（提供 ximgproc.thinning）。
+  - 新增实施计划 `docs/superpowers/plans/2026-08-03-hook.md`。
+  - 测试：pytest 31 项通过；ruff/black/isort/mypy 全量通过。
