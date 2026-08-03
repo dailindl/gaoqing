@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 
+from hd_image_system.binarize import generate_bw_candidates
 from hd_image_system.downloader import download_source
 from hd_image_system.mapping import build_source_maps
 from hd_image_system.models import parse_input_list, processing_mode
@@ -30,6 +31,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--storage-root", type=Path, default=Path("storage"), help="存储根前缀"
     )
     stitch_parser.add_argument("--quality", type=int, default=95, help="JPEG 质量（1-100）")
+
+    bw_parser = subparsers.add_parser("bw", help="生成黑白候选（REQ §6.1）")
+    bw_parser.add_argument("--version-id", required=True, help="作品级唯一标识")
+    bw_parser.add_argument("--storage-root", type=Path, default=Path("storage"), help="存储根前缀")
     return parser
 
 
@@ -110,6 +115,36 @@ def cmd_stitch(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_bw(args: argparse.Namespace) -> int:
+    """生成黑白候选并回写处理记录（REQ §6.1）。
+
+    Args:
+        args: 解析后的命令行参数。
+
+    Returns:
+        成功返回 0，原图缺失返回 1。
+    """
+    records_path = args.storage_root / args.version_id / "records" / "processing.json"
+    record = load_record(records_path, args.version_id)
+    if not record.original or not record.original.get("path"):
+        print("请先执行 stitch 生成原图")
+        return 1
+    original_path = Path(record.original["path"])
+    if not original_path.is_file():
+        print(f"原图不存在: {original_path}")
+        return 1
+    dest_dir = args.storage_root / args.version_id / "bw" / "candidates"
+    candidates = generate_bw_candidates(original_path, dest_dir)
+    record.bw = {
+        "candidates": [c.model_dump() for c in candidates],
+        "selected": None,
+    }
+    record.status["bw"] = "pending_selection"
+    save_record(record, records_path)
+    print(f"黑白候选生成: {len(candidates)} 个")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """程序入口。
 
@@ -124,6 +159,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_download(args)
     if args.command == "stitch":
         return cmd_stitch(args)
+    if args.command == "bw":
+        return cmd_bw(args)
     return 1
 
 
