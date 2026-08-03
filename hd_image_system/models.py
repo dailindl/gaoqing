@@ -125,6 +125,28 @@ class BwValidation(BaseModel):
     errors: list[str] = []
 
 
+class HookCandidate(BaseModel):
+    """书法双钩候选记录（REQ §6.2）。
+
+    Attributes:
+        candidate_id: 候选标识。
+        strategy: 参数/策略标识。
+        params: 生成参数。
+        generated_at: 生成时间（ISO 8601）。
+        path: 候选 PNG 文件路径。
+        width: 画布宽度。
+        height: 画布高度。
+    """
+
+    candidate_id: str
+    strategy: str
+    params: dict[str, int | float] = {}
+    generated_at: str
+    path: str
+    width: int
+    height: int
+
+
 def parse_input_list(path: Path) -> list[SourceItem]:
     """解析输入清单 JSON 并按 img_num 升序返回。
 
