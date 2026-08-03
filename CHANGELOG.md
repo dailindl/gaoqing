@@ -24,3 +24,8 @@
   - 新增 `hd_image_system` 包（config/models/downloader/records/cli）。
   - 输入清单解析（img_num 权威排序、单图/多图判定）、来源图片下载与校验归档、processing.json 处理记录、download CLI。
   - 测试：pytest 15 项通过；ruff/black/isort/mypy 全量通过。
+- 完成 M3「拼接与导航」开发（2026-08-03）：
+  - 新增 `mapping.py`（Zmax/层级公式、tile-X 映射、来源位置映射）与 `stitcher.py`（高度统一等比缩放、pyvips 从右向左流式拼接）。
+  - `stitch` CLI：生成 original.jpg、回写来源 x_range/scaled/尺寸与位置映射，原图状态置为 selected。
+  - 新增实施计划 `docs/superpowers/plans/2026-08-03-stitching-navigation.md`。
+  - 测试：pytest 23 项通过；ruff/black/isort/mypy 全量通过。
