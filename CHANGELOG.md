@@ -17,3 +17,4 @@
 - Manifest 增加 `manifest_version` 字段（当前为 1）。
 - 已执行 `git init` 并将上述文件作为首次提交。
 - 生成任务列表 `TASKLIST-calligraphy-hd-image-system.md`（需求 V1.2 已确认）。
+- 生成方案设计文档 `DESIGN-calligraphy-hd-image-system.md`（D0.1，含开源调研结论与备选方案，待人工确认）。
