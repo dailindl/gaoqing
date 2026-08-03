@@ -18,3 +18,9 @@
 - 已执行 `git init` 并将上述文件作为首次提交。
 - 生成任务列表 `TASKLIST-calligraphy-hd-image-system.md`（需求 V1.2 已确认）。
 - 生成方案设计文档 `DESIGN-calligraphy-hd-image-system.md`（D0.1，含开源调研结论与备选方案，待人工确认）。
+- 方案 D0.1 已按推荐确认（2026-08-03）。
+- 新增实施计划 `docs/superpowers/plans/2026-08-03-download-archive.md`（M1+M2 切片）。
+- 完成 M1+M2「基建 + 获取归档」开发：
+  - 新增 `hd_image_system` 包（config/models/downloader/records/cli）。
+  - 输入清单解析（img_num 权威排序、单图/多图判定）、来源图片下载与校验归档、processing.json 处理记录、download CLI。
+  - 测试：pytest 15 项通过；ruff/black/isort/mypy 全量通过。
