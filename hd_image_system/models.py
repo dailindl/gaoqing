@@ -95,6 +95,36 @@ class SourceMap(BaseModel):
     layers: list[LayerMap]
 
 
+class BWCandidate(BaseModel):
+    """黑白候选记录（REQ §6.1）。
+
+    Attributes:
+        candidate_id: 候选标识。
+        strategy: 参数/策略标识。
+        params: 生成参数。
+        generated_at: 生成时间（ISO 8601）。
+        path: 候选 PNG 文件路径。
+    """
+
+    candidate_id: str
+    strategy: str
+    params: dict[str, int | float] = {}
+    generated_at: str
+    path: str
+
+
+class BwValidation(BaseModel):
+    """已选黑白图质量边界校验结果（REQ §6.1；AC-06）。
+
+    Attributes:
+        valid: 是否满足全部强制边界。
+        errors: 不满足的边界项列表。
+    """
+
+    valid: bool
+    errors: list[str] = []
+
+
 def parse_input_list(path: Path) -> list[SourceItem]:
     """解析输入清单 JSON 并按 img_num 升序返回。
 
