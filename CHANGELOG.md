@@ -16,3 +16,4 @@
 - 候选图保留策略：人工选择完成前全部候选全分辨率保留；整套作品处理完毕后未选候选可删除。
 - Manifest 增加 `manifest_version` 字段（当前为 1）。
 - 已执行 `git init` 并将上述文件作为首次提交。
+- 生成任务列表 `TASKLIST-calligraphy-hd-image-system.md`（需求 V1.2 已确认）。
