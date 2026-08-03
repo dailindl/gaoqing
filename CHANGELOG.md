@@ -29,3 +29,9 @@
   - `stitch` CLI：生成 original.jpg、回写来源 x_range/scaled/尺寸与位置映射，原图状态置为 selected。
   - 新增实施计划 `docs/superpowers/plans/2026-08-03-stitching-navigation.md`。
   - 测试：pytest 23 项通过；ruff/black/isort/mypy 全量通过。
+- 完成 M4「黑白候选生成」开发（2026-08-03）：
+  - 新增 `binarize.py`：Otsu / 自适应均值 / 自适应高斯 / Sauvola / Wolf 共 8 个候选策略，红色印章掩码归入前景，极性统一为白底黑字。
+  - `bw` CLI：生成候选到 bw/candidates、回写记录并置状态 pending_selection。
+  - `validate_bw_master`：已选黑白图 master 的质量边界校验（尺寸、二值、白底黑字）。
+  - 新增实施计划 `docs/superpowers/plans/2026-08-03-binarize.md`。
+  - 测试：pytest 28 项通过；ruff/black/isort/mypy 全量通过。
