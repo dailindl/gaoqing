@@ -5,6 +5,7 @@ from pathlib import Path
 
 from hd_image_system.binarize import generate_bw_candidates
 from hd_image_system.downloader import download_source
+from hd_image_system.hook import generate_hook_candidates
 from hd_image_system.mapping import build_source_maps
 from hd_image_system.models import parse_input_list, processing_mode
 from hd_image_system.records import load_record, save_record
@@ -35,6 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
     bw_parser = subparsers.add_parser("bw", help="生成黑白候选（REQ §6.1）")
     bw_parser.add_argument("--version-id", required=True, help="作品级唯一标识")
     bw_parser.add_argument("--storage-root", type=Path, default=Path("storage"), help="存储根前缀")
+
+    hook_parser = subparsers.add_parser("hook", help="生成书法双钩候选（REQ §6.2）")
+    hook_parser.add_argument("--version-id", required=True, help="作品级唯一标识")
+    hook_parser.add_argument(
+        "--storage-root", type=Path, default=Path("storage"), help="存储根前缀"
+    )
     return parser
 
 
@@ -145,6 +152,42 @@ def cmd_bw(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_hook(args: argparse.Namespace) -> int:
+    """生成书法双钩候选并回写处理记录（REQ §6.2）。
+
+    Args:
+        args: 解析后的命令行参数。
+
+    Returns:
+        成功返回 0，已选黑白图缺失返回 1。
+    """
+    records_path = args.storage_root / args.version_id / "records" / "processing.json"
+    record = load_record(records_path, args.version_id)
+    selected_path: str | None = None
+    if record.bw and isinstance(record.bw.get("selected"), dict):
+        selected = record.bw["selected"]
+        if isinstance(selected, dict):
+            path_value = selected.get("path")
+            if isinstance(path_value, str):
+                selected_path = path_value
+    if not selected_path:
+        selected_path = str(args.storage_root / args.version_id / "bw" / "selected.png")
+    bw_selected = Path(selected_path)
+    if not bw_selected.is_file():
+        print(f"已选黑白图不存在: {bw_selected}，请先人工选择并放置 bw/selected.png")
+        return 1
+    dest_dir = args.storage_root / args.version_id / "hook" / "candidates"
+    candidates = generate_hook_candidates(bw_selected, dest_dir)
+    record.hook = {
+        "candidates": [c.model_dump() for c in candidates],
+        "selected": None,
+    }
+    record.status["hook"] = "pending_selection"
+    save_record(record, records_path)
+    print(f"双钩候选生成: {len(candidates)} 个")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """程序入口。
 
@@ -161,6 +204,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_stitch(args)
     if args.command == "bw":
         return cmd_bw(args)
+    if args.command == "hook":
+        return cmd_hook(args)
     return 1
 
 
