@@ -4,8 +4,10 @@ import argparse
 from pathlib import Path
 
 from hd_image_system.downloader import download_source
+from hd_image_system.mapping import build_source_maps
 from hd_image_system.models import parse_input_list, processing_mode
 from hd_image_system.records import load_record, save_record
+from hd_image_system.stitcher import compute_placements, stitch, unify_heights
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -21,6 +23,13 @@ def build_parser() -> argparse.ArgumentParser:
     download.add_argument("--version-id", required=True, help="作品级唯一标识")
     download.add_argument("--input-list", required=True, type=Path, help="输入清单 JSON 路径")
     download.add_argument("--storage-root", type=Path, default=Path("storage"), help="存储根前缀")
+
+    stitch_parser = subparsers.add_parser("stitch", help="拼接原图并生成位置映射（REQ §5）")
+    stitch_parser.add_argument("--version-id", required=True, help="作品级唯一标识")
+    stitch_parser.add_argument(
+        "--storage-root", type=Path, default=Path("storage"), help="存储根前缀"
+    )
+    stitch_parser.add_argument("--quality", type=int, default=95, help="JPEG 质量（1-100）")
     return parser
 
 
@@ -53,6 +62,54 @@ def cmd_download(args: argparse.Namespace) -> int:
     return 0 if failed == 0 else 1
 
 
+def cmd_stitch(args: argparse.Namespace) -> int:
+    """执行原图拼接与导航映射阶段。
+
+    Args:
+        args: 解析后的命令行参数。
+
+    Returns:
+        成功返回 0，无可用来源图返回 1。
+    """
+    records_path = args.storage_root / args.version_id / "records" / "processing.json"
+    record = load_record(records_path, args.version_id)
+    ok_sources = [s for s in record.sources if s.status == "ok"]
+    if not ok_sources:
+        print("没有可用来源图，请先执行 download")
+        return 1
+
+    unified = unify_heights(
+        ok_sources, args.storage_root / args.version_id / "original" / "segments"
+    )
+    placements = compute_placements(unified)
+    original_path = args.storage_root / args.version_id / "original.jpg"
+    width, height = stitch(unified, original_path, quality=args.quality)
+    maps = build_source_maps(placements, width, height)
+
+    by_index = {p.source_index: p for p in placements}
+    unified_by_index = {u.source_index: u for u in unified}
+    for source in record.sources:
+        placement = by_index.get(source.source_index)
+        if placement:
+            source.x_range = (placement.x_start, placement.x_end)
+        unified_item = unified_by_index.get(source.source_index)
+        if unified_item:
+            source.scaled = unified_item.scaled
+            source.original_size = unified_item.original_size
+            source.unified_size = unified_item.unified_size
+
+    record.original = {
+        "width": width,
+        "height": height,
+        "path": str(original_path),
+        "source_maps": [m.model_dump() for m in maps],
+    }
+    record.status["original"] = "selected"
+    save_record(record, records_path)
+    print(f"拼接完成: {width}x{height}, 来源映射 {len(maps)} 条")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """程序入口。
 
@@ -65,6 +122,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "download":
         return cmd_download(args)
+    if args.command == "stitch":
+        return cmd_stitch(args)
     return 1
 
 
