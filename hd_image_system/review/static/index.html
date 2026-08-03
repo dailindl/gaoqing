@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>书法高清大图评审工具</title>
+<script src="https://cdn.jsdelivr.net/npm/openseadragon@4.1.0/build/openseadragon/openseadragon.min.js"></script>
+<style>
+  body { margin: 0; font-family: sans-serif; background: #222; color: #eee; }
+  #toolbar { padding: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #panes { display: flex; height: calc(100vh - 48px); }
+  .pane { flex: 1; position: relative; border-right: 1px solid #555; }
+  .pane-label { position: absolute; top: 4px; left: 8px; z-index: 10; background: rgba(0,0,0,.6); padding: 2px 8px; border-radius: 4px; font-size: 13px; }
+  #candidates button { margin-right: 4px; }
+  #status { color: #9f9; }
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <label>类型 <select id="kind"><option value="bw">黑白</option><option value="hook">双钩</option></select></label>
+  <label>操作者 <input id="operator" value="tester"></label>
+  <span id="candidates"></span>
+  <button id="confirm">确认选择</button>
+  <span id="status"></span>
+</div>
+<div id="panes">
+  <div class="pane"><div class="pane-label">原图 / 上游</div><div id="viewerA"></div></div>
+  <div class="pane"><div class="pane-label">候选</div><div id="viewerB"></div></div>
+</div>
+<script>
+const params = new URLSearchParams(location.search);
+const versionId = params.get('version_id') || 'v1';
+const api = `/api/versions/${versionId}`;
+const osPrefix = 'https://cdn.jsdelivr.net/npm/openseadragon@4.1.0/build/openseadragon/images/';
+let kind = 'bw';
+let selectedCandidate = null;
+const viewerA = OpenSeadragon({ id: 'viewerA', prefixUrl: osPrefix, showNavigator: true });
+const viewerB = OpenSeadragon({ id: 'viewerB', prefixUrl: osPrefix, showNavigator: true });
+let syncing = false;
+function syncTo(target, source) {
+  const vp = source.viewport;
+  target.viewport.zoomTo(vp.getZoom(), vp.getCenter(true), true);
+}
+viewerA.addHandler('viewport-change', () => {
+  if (!syncing) { syncing = true; syncTo(viewerB, viewerA); syncing = false; }
+});
+viewerB.addHandler('viewport-change', () => {
+  if (!syncing) { syncing = true; syncTo(viewerA, viewerB); syncing = false; }
+});
+async function loadCandidates() {
+  const resp = await fetch(`${api}/candidates/${kind}`);
+  const data = await resp.json();
+  const box = document.getElementById('candidates');
+  box.innerHTML = '';
+  (data.candidates || []).forEach(c => {
+    const btn = document.createElement('button');
+    btn.textContent = c.candidate_id;
+    btn.onclick = () => loadCandidate(c);
+    box.appendChild(btn);
+  });
+  viewerA.open({ type: 'image', url: `${api}/original` });
+  if (data.candidates && data.candidates.length) loadCandidate(data.candidates[0]);
+}
+function loadCandidate(c) {
+  selectedCandidate = c;
+  viewerB.open({ type: 'image', url: `${api}/candidates/${kind}/${c.candidate_id}.png` });
+  document.getElementById('status').textContent = `当前候选: ${c.candidate_id} (${c.strategy})`;
+}
+document.getElementById('kind').onchange = (e) => { kind = e.target.value; loadCandidates(); };
+document.getElementById('confirm').onclick = async () => {
+  if (!selectedCandidate) return;
+  const operator = document.getElementById('operator').value || 'unknown';
+  const resp = await fetch(`${api}/select`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind, candidate_id: selectedCandidate.candidate_id, operator })
+  });
+  const result = await resp.json();
+  document.getElementById('status').textContent = result.ok
+    ? `已确认 ${selectedCandidate.candidate_id}`
+    : `失败: ${JSON.stringify(result)}`;
+};
+loadCandidates();
+</script>
+</body>
+</html>

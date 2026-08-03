@@ -42,6 +42,13 @@ def build_parser() -> argparse.ArgumentParser:
     hook_parser.add_argument(
         "--storage-root", type=Path, default=Path("storage"), help="存储根前缀"
     )
+
+    review_parser = subparsers.add_parser("review", help="启动人工评审工具（REQ §11）")
+    review_parser.add_argument(
+        "--storage-root", type=Path, default=Path("storage"), help="存储根前缀"
+    )
+    review_parser.add_argument("--host", default="127.0.0.1", help="监听地址")
+    review_parser.add_argument("--port", type=int, default=8000, help="监听端口")
     return parser
 
 
@@ -188,6 +195,24 @@ def cmd_hook(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_review(args: argparse.Namespace) -> int:
+    """启动人工评审工具服务（REQ §11）。
+
+    Args:
+        args: 解析后的命令行参数。
+
+    Returns:
+        服务退出后返回 0。
+    """
+    import uvicorn
+
+    from hd_image_system.review.api import create_app
+
+    app = create_app(args.storage_root)
+    uvicorn.run(app, host=args.host, port=args.port)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """程序入口。
 
@@ -206,6 +231,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_bw(args)
     if args.command == "hook":
         return cmd_hook(args)
+    if args.command == "review":
+        return cmd_review(args)
     return 1
 
 
