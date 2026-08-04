@@ -55,3 +55,7 @@
   - `tile`/`manifest` CLI：瓦片按 kind 生成；manifest 自动补齐原图瓦片与缩略图后装配、校验、发布，原图状态置 published。
   - 新增实施计划 `docs/superpowers/plans/2026-08-04-tiling-manifest.md`。
   - 测试：pytest 48 项通过；ruff/black/isort/mypy 全量通过。
+- 完成 M8「全量端到端验证与文档收口」（2026-08-04）：
+  - 新增 `tests/test_e2e_pipeline.py`：本地 HTTP 服务走通 下载→拼接→黑白→评审选择→双钩→选择→三版本瓦片→Manifest 全链路，断言状态流转、对象键、x_range、URL 模板与缩略图倒序。
+  - 更新 TASKLIST（T0–T8 完成）、CONTEXT（金字塔公式、多图窄区间规则）、CHANGELOG。
+  - 全量门禁：pytest 全绿；ruff/black/isort/mypy 全量通过。
