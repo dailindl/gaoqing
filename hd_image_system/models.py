@@ -147,6 +147,44 @@ class HookCandidate(BaseModel):
     height: int
 
 
+class Jump2xItem(BaseModel):
+    """jump2x 单层导航项（REQ §8.4）。
+
+    Attributes:
+        z: 层级。
+        x: 该层 tile-X 索引。
+    """
+
+    z: int
+    x: int
+
+
+class ThumbnailInfo(BaseModel):
+    """缩略图导航信息（REQ §8、§10）。
+
+    Attributes:
+        url: 缩略图地址。
+        index: 缩略图序号（最右侧为 1）。
+        jump2x: 覆盖全部层级的导航数组。
+    """
+
+    url: str
+    index: int
+    jump2x: list[Jump2xItem]
+
+
+class ManifestValidation(BaseModel):
+    """Manifest 校验结果（REQ §10；AC-09/10/13/14）。
+
+    Attributes:
+        valid: 是否通过全部校验。
+        errors: 不满足的规则列表。
+    """
+
+    valid: bool
+    errors: list[str] = []
+
+
 def parse_input_list(path: Path) -> list[SourceItem]:
     """解析输入清单 JSON 并按 img_num 升序返回。
 
