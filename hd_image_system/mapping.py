@@ -25,6 +25,41 @@ def zmax_for_size(width: int, height: int, tile_size: int = TILE_SIZE) -> int:
     return math.ceil(math.log2(max_dim / tile_size))
 
 
+def level_size(width: int, height: int, z: int, zmax: int) -> tuple[int, int]:
+    """计算指定层的画布尺寸（层级公式，REQ §7.1）。
+
+    Args:
+        width: 原始画布宽度。
+        height: 原始画布高度。
+        z: 层级。
+        zmax: 最大层。
+
+    Returns:
+        层级画布 (宽, 高)。
+    """
+    scale = scale_for_z(z, zmax)
+    return max(1, round(width * scale)), max(1, round(height * scale))
+
+
+def tile_counts(
+    width: int, height: int, z: int, zmax: int, tile_size: int = TILE_SIZE
+) -> tuple[int, int]:
+    """计算指定层的瓦片网格 (tile_count_x, tile_count_y)。
+
+    Args:
+        width: 原始画布宽度。
+        height: 原始画布高度。
+        z: 层级。
+        zmax: 最大层。
+        tile_size: 瓦片边长。
+
+    Returns:
+        瓦片网格 (列数, 行数)。
+    """
+    level_w, level_h = level_size(width, height, z, zmax)
+    return math.ceil(level_w / tile_size), math.ceil(level_h / tile_size)
+
+
 def scale_for_z(z: int, zmax: int) -> float:
     """计算层级缩放系数 scale_z = 2^(z - Zmax)。
 
