@@ -47,3 +47,11 @@
   - 选择确认：复制候选为 `{kind}/selected.png`，记录候选标识/策略/参数/路径/时间/操作者，状态置 selected。
   - 新增实施计划 `docs/superpowers/plans/2026-08-04-review-tool.md`。
   - 测试：pytest 38 项通过；ruff/black/isort/mypy 全量通过。
+- 修改意图（2026-08-04，M7）：新增瓦片/缩略图/Manifest 装配模块（tiling/thumbnails/manifest + CLI），实现 REQ §7/§8/§10 与 AC-08…AC-14；完成后更新实际变更。
+- 完成 M7「瓦片/缩略图/Manifest 装配」开发（2026-08-04）：
+  - 新增 `tiling.py`：pyvips 逐层生成统一金字塔瓦片（z=0 最小层 → z=Zmax 原始分辨率，256×256，JPEG）。
+  - 新增 `thumbnails.py`：单图 1080px 分段 / 多图按分屏图区间生成 9:16 缩略图与 jump2x；高度不足 1920 不做特殊处理。
+  - 新增 `manifest.py`：统一 Manifest 装配（manifest_version/version_id/layers/URL 模板状态规则/thumbnails 倒序）与契约校验（AC-09/10/13/14）。
+  - `tile`/`manifest` CLI：瓦片按 kind 生成；manifest 自动补齐原图瓦片与缩略图后装配、校验、发布，原图状态置 published。
+  - 新增实施计划 `docs/superpowers/plans/2026-08-04-tiling-manifest.md`。
+  - 测试：pytest 48 项通过；ruff/black/isort/mypy 全量通过。
