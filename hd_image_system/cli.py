@@ -1,15 +1,20 @@
 """命令行入口（获取与归档阶段，REQ §4）。"""
 
 import argparse
+import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from hd_image_system.binarize import generate_bw_candidates
 from hd_image_system.downloader import download_source
 from hd_image_system.hook import generate_hook_candidates
+from hd_image_system.manifest import build_manifest, validate_manifest
 from hd_image_system.mapping import build_source_maps
-from hd_image_system.models import parse_input_list, processing_mode
+from hd_image_system.models import ThumbnailInfo, parse_input_list, processing_mode
 from hd_image_system.records import load_record, save_record
 from hd_image_system.stitcher import compute_placements, stitch, unify_heights
+from hd_image_system.thumbnails import generate_thumbnails
+from hd_image_system.tiling import generate_tiles
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -49,6 +54,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     review_parser.add_argument("--host", default="127.0.0.1", help="监听地址")
     review_parser.add_argument("--port", type=int, default=8000, help="监听端口")
+
+    tile_parser = subparsers.add_parser("tile", help="生成版本瓦片（REQ §7）")
+    tile_parser.add_argument("--version-id", required=True, help="作品级唯一标识")
+    tile_parser.add_argument(
+        "--storage-root", type=Path, default=Path("storage"), help="存储根前缀"
+    )
+    tile_parser.add_argument(
+        "--kind", choices=("original", "bw", "hook"), required=True, help="版本类型"
+    )
+    tile_parser.add_argument("--quality", type=int, default=90, help="JPEG 质量（1-100）")
+
+    manifest_parser = subparsers.add_parser("manifest", help="装配并发布 Manifest（REQ §10）")
+    manifest_parser.add_argument("--version-id", required=True, help="作品级唯一标识")
+    manifest_parser.add_argument(
+        "--storage-root", type=Path, default=Path("storage"), help="存储根前缀"
+    )
+    manifest_parser.add_argument("--quality", type=int, default=90, help="JPEG 质量（1-100）")
     return parser
 
 
@@ -213,6 +235,103 @@ def cmd_review(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tile(args: argparse.Namespace) -> int:
+    """生成指定版本的统一金字塔瓦片（REQ §7）。
+
+    Args:
+        args: 解析后的命令行参数。
+
+    Returns:
+        成功返回 0，master 缺失返回 1。
+    """
+    records_path = args.storage_root / args.version_id / "records" / "processing.json"
+    record = load_record(records_path, args.version_id)
+    if args.kind == "original":
+        if not record.original or not record.original.get("path"):
+            print("请先执行 stitch 生成原图")
+            return 1
+        master = Path(record.original["path"])
+    elif args.kind == "bw":
+        master = args.storage_root / args.version_id / "bw" / "selected.png"
+    else:
+        master = args.storage_root / args.version_id / "hook" / "selected.png"
+    if not master.is_file():
+        print(f"{args.kind} master 不存在: {master}")
+        return 1
+    out_dir = args.storage_root / args.version_id / "tiles" / args.kind
+    info = generate_tiles(master, out_dir, quality=args.quality)
+    record.status[args.kind] = "generating_tiles" if args.kind == "original" else "published"
+    save_record(record, records_path)
+    print(f"瓦片生成完成 {args.kind}: {info}")
+    return 0
+
+
+def cmd_manifest(args: argparse.Namespace) -> int:
+    """装配、校验并发布统一 Manifest（REQ §10）。
+
+    原图瓦片或缩略图缺失时自动生成。
+
+    Args:
+        args: 解析后的命令行参数。
+
+    Returns:
+        发布成功返回 0，前置缺失或校验失败返回 1。
+    """
+    records_path = args.storage_root / args.version_id / "records" / "processing.json"
+    record = load_record(records_path, args.version_id)
+    if not record.original or not record.original.get("path") or not record.original.get("width"):
+        print("请先执行 stitch 生成原图")
+        return 1
+    original_path = Path(record.original["path"])
+    if not original_path.is_file():
+        print(f"原图不存在: {original_path}")
+        return 1
+
+    tiles_dir = args.storage_root / args.version_id / "tiles" / "original"
+    if (
+        record.status["original"] not in ("generating_tiles", "published")
+        or not (tiles_dir / "0").is_dir()
+    ):
+        generate_tiles(original_path, tiles_dir, quality=args.quality)
+        record.status["original"] = "generating_tiles"
+
+    thumbnails: list[ThumbnailInfo] | None = None
+    if record.original.get("thumbnails"):
+        thumbnails = [ThumbnailInfo.model_validate(item) for item in record.original["thumbnails"]]
+    if thumbnails is None:
+        mode = "single" if len(record.sources) <= 1 else "multi"
+        source_maps = record.original.get("source_maps") or []
+        thumbs_dir = args.storage_root / args.version_id / "thumbs"
+        thumbnails = generate_thumbnails(
+            original_path,
+            thumbs_dir,
+            args.version_id,
+            mode,
+            source_maps,
+            quality=args.quality,
+        )
+        record.original["thumbnails"] = [t.model_dump() for t in thumbnails]
+
+    manifest = build_manifest(args.version_id, record, thumbnails)
+    validation = validate_manifest(manifest)
+    if not validation.valid:
+        print("Manifest 校验失败: " + "; ".join(validation.errors))
+        return 1
+    manifest_path = args.storage_root / args.version_id / "manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    record.manifest = {
+        "path": str(manifest_path),
+        "published_at": datetime.now(UTC).isoformat(),
+    }
+    record.status["original"] = "published"
+    save_record(record, records_path)
+    print(f"Manifest 发布: {manifest_path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """程序入口。
 
@@ -233,6 +352,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_hook(args)
     if args.command == "review":
         return cmd_review(args)
+    if args.command == "tile":
+        return cmd_tile(args)
+    if args.command == "manifest":
+        return cmd_manifest(args)
     return 1
 
 
